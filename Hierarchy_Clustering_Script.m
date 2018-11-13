@@ -56,23 +56,31 @@ Data.nodelabels = nodelabels(Data.ixRetain,:);   % update the node labels
 % TO SOLVE HERE:
 % (1) how to get limits on cluster numbers? 
 %     (a) Could use spectral rejection of course; but then this would mean using all that code and explaining it all in the report... 
-%    (b) or just a fixed number...
-% (2) use a different consensus 
+%     (b) original approach of just +ve eigs (but too many)
+%     (c) bisection method
+%     (d) or just a fixed number...
+% (2) use a different clustering methods to get initial set for
+% constructing consensus matrix
 
 % simple eigen-gap solution
 
-P = expectedA(Data.A);
-B = A - P;
-Edata = sort(eig(B),'descend');
+% P = expectedA(Data.A);
+% B = A - P;
+% Edata = sort(eig(B),'descend');
 
 
 % (1) spectral clustering
 
+% project data using Laplacian - fix this to get better output. Do we use
+% K-nearest-neighbours?
+% Or do something else entirely? (e.g. Louvain)
+[D,egs] = ProjectLaplacian(Data.A,[3,10])
+
+% get partitions using k-means
+
+
 % (2) make consensus
 
-
-% [Full.QmaxCluster,Full.Qmax,Full.ConsCluster,Full.ConsQ,~] = ...
-%           ConsensusCommunityDetect(Data.A,Data.ExpA,1+Data.Dn,1+Data.Dn,clusterpars.nreps,[],clusterpars.explore);
        
        
 
