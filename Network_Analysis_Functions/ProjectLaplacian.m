@@ -30,7 +30,7 @@ function [D,egs,varargout] = ProjectLaplacian(W,varargin)
 % Mark Humphries
 N = size(W,1);                     % number of objects 
 
-Lbnd = 1; Ubnd = N;   % default: check all eigenvalues
+Lbnd = 1; Ubnd = round(N/2);   % default: check first half of eigenvalues
 
 if nargin > 1
     if numel(varargin{1}) == 1 % passing a scalar
@@ -49,19 +49,19 @@ Lrw = D' * L;                   % Laplacian random walk
 %% FIX: double eigenvector computation
 [V,egs] = eig(Lrw,'vector');         % get eigenvalues of Laplacian (RW)
 [egs,ix] = sort(egs,'ascend');    % sort into *ascending* order: we want the *smallest* eigenvalues here [Luxburg pg 3, last line]
-V = V(:,ix);
+V = V(:,ix);        % sort eigenvectors
 
 if Ubnd==Lbnd
     k = Lbnd;
 else
     % eigengap heuristic, between specified bounds
-    k = (Lbnd-1) + find(max(diff(egs(Lbnd:Ubnd))));    % generally fails miserably
+    diffegs = diff(egs(Lbnd:Ubnd));
+    k = (Lbnd-1) + find(max(diffegs)==diffegs);    
 end
 
-keyboard
+D = V(:,1:k);
 
-[~,D] = eigs(Lrw,k);                      % embedding dimensions
-
+% keyboard
 varargout{1} = egs;     % for debugging
 
                 

@@ -11,8 +11,7 @@ fname = 'Allen_Gene_Leaf';
 
 
 % clustering parameters
-clusterpars.K = 0.05;
-clusterpars.nreps = 100;        % of k-means
+clusterpars.nreps = 100;
 clusterpars.explore = 'explore';  % allow consensus to use more groups than specified by spectral rejection
 
 
@@ -70,20 +69,23 @@ Data.nodelabels = nodelabels(Data.ixRetain,:);   % update the node labels
 % Edata = sort(eig(B),'descend');
 
 
-% (1) spectral clustering: project data using Laplacian 
-% K-nearest neighbours
-Wk = KNearestNeighbours(Data.A,clusterpars.K);
+% (1) spectral clustering
 
-% project that graph
-[D,egs] = ProjectLaplacian(Wk);
+% project data using Laplacian - fix this to get better output. Do we use
+% K-nearest-neighbours?
+
+% K-nearest neighbours
+[Wk = KNearestNeigh
+
+% Or do something else entirely? (e.g. Louvain)
+[D,egs] = ProjectLaplacian(Data.A,[3,10])
 
 % get partitions using k-means
-k = size(D,2);
-allgrps = kmeansSweep(D,k,k,clusterpars.nreps,'all');
+
 
 % (2) make consensus
 
-% Or do something else entirely? (e.g. Louvain)       
+       
        
 
 %% create hierarchy
