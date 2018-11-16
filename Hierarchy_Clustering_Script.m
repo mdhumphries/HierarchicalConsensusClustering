@@ -11,7 +11,7 @@ fname = 'Allen_Gene_Leaf';
 
 
 % clustering parameters
-clusterpars.K = 0.05;
+clusterpars.K = 0.1;            % proportion of neighbours to retain
 clusterpars.nreps = 100;        % of k-means
 clusterpars.explore = 'explore';  % allow consensus to use more groups than specified by spectral rejection
 
@@ -70,18 +70,20 @@ Data.nodelabels = nodelabels(Data.ixRetain,:);   % update the node labels
 % Edata = sort(eig(B),'descend');
 
 
-% (1) spectral clustering: project data using Laplacian 
-% K-nearest neighbours
-Wk = KNearestNeighbours(Data.A,clusterpars.K);
-
-% project that graph
-[D,egs] = ProjectLaplacian(Wk);
-
-% get partitions using k-means
-k = size(D,2);
-allgrps = kmeansSweep(D,k,k,clusterpars.nreps,'all');
+% % (1) spectral clustering: project data using Laplacian 
+% % K-nearest neighbours
+% Wk = KNearestNeighbours(Data.A,clusterpars.K);
+% 
+% % project that graph
+% [D,egs] = ProjectLaplacian(Wk);
+% 
+% % get partitions using k-means
+% k = size(D,2);
+% allgrps = kmeansSweep(D,k,k,clusterpars.nreps,'all');
 
 % (2) make consensus
+
+[grpscon,ctr,k] = ConsensusSpectralClustering(Data.A,clusterpars.K);
 
 % Or do something else entirely? (e.g. Louvain)       
        

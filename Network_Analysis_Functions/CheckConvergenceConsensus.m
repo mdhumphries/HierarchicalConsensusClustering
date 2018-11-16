@@ -16,8 +16,6 @@ function [blnTrans,grpscon,varargout] = CheckConvergenceConsensus(C)
 %
 % Mark Humphries
 
-addpath ../Helper_Functions/
-
 nIDs = size(C,1);  % number of objects
 % get upper-triangular entries of consensus matrix
 idx = find(triu(ones(size(C)),1)); % upper triangular above diagonal;

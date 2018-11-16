@@ -1,22 +1,22 @@
-function [grpscon,ctr,k,varargout] = ConsensusSpectralClustering(W,varargin)
+function [grpscon,ctr,k,varargout] = ConsensusSpectralClustering(W,Knn,varargin)
  
 % CONSENSUSSPECTRALCLUSTERING consensus partition using spectral clustering
-%   [C,N] = CONSENSUSSPECTRALCLUSTERING(S) finds the consensus-clustering 
-%   partition of the similarity matrix S, using spectral clustering.
+%   [C,N,K] = CONSENSUSSPECTRALCLUSTERING(S,Knn) finds the consensus-clustering 
+%   partition of the similarity matrix S, using spectral clustering. The
+%   similarity matrix is turned into a K-nearest-neighbours graph using
+%   Knn.
 %
-%   expected null model P, and minimum L and maximum M number of groups to detect.
-%   
 %   Returns: 
 %       C: column vector indicating group membership for the partition with maximum
 %           modularity
 %       N:  the number of iterations until consensus was reached. 
 %       K: the number of clusters detected at each iteration
 %
-%   ...= CONSENSUSSPECTRALCLUSTERING(...,L,U,N,DIMS,'explore') 
+%   ...= CONSENSUSSPECTRALCLUSTERING(...,N,DIMS,'fixed') 
 %           N : sets k-means to run  N times for each specified group size (default is 50)
 %           DIMS : 'all' (default), 'scaled'; the embedding dimensions for each tested K. See KMEANSSWEEP
-%           'explore': if L==U, then set this option to let the consensus
-%               algorithm explore greater numbers of groups
+%           'fixed': set this option to force consensus algorithm to always
+%           use initially identified number of clusters
 %   
 %   [...,bCON,CLU,Wk] = CONSENSUSSPECTRALCLUSTERING(...) where:
 %       bCON : a Boolean flag indicating whether the consensus algorithm
@@ -50,7 +50,7 @@ function [grpscon,ctr,k,varargout] = ConsensusSpectralClustering(W,varargin)
 % defaults
 nreps = 50;     % of each distance metric
 dims = 'all';   % use all embedding dimensions for each k-means clustering
-blnExplore = 1;
+blnExplore = 1;     % allow consensus algorithm to determine its own number of clusters
 
 %% check if the passed matrix is a graph: catch common errors when passing a similarity matrix
 
@@ -74,15 +74,15 @@ if nargin >= 6 && ~isempty(varargin{2})
     dims = varargin{2}; 
 end    
 
-if nargin >= 7 && strcmp(varargin{3},'explore') 
-    blnExplore = 1;
+if nargin >= 7 && strcmp(varargin{3},'fixed') 
+    blnExplore = 0;     % force consensus algorithm to 
 end    
 
 % % set up saving of each iteration
 % blnSave = 0; % internal flag for setting saving of data
 % if blnSave  
 %     fname = ['Consensus_Iterations_' datestr(now,30)];
-%     save(fname,'dims','nreps');  % save initial data to allow -append to work below
+%     save(fname,'dims','nreps','blnExplore');  % save initial data to allow -append to work below
 % end
 
 %% internal parameters
@@ -94,14 +94,14 @@ ctr = 1;                % iterations of consensus
 %% cluster similarity matrix
 
 % if matrix is dense, make sparse using k-nearest-neighbours
-Wk = KNearestNeighbours(Data.A,clusterpars.K);
+Wk = KNearestNeighbours(W,Knn);
 
 % project that graph; finds number of groups using eigengap heuristic
 [D,egs] = ProjectLaplacian(Wk);
 
 % get partitions using k-means
 k(ctr) = size(D,2);  % number of groups to find
-C = kmeansSweep(D,k(ctr),k(ctr),clusterpars.nreps,'all');
+C = kmeansSweep(D,k(ctr),k(ctr),nreps,dims);
 
 
 %% check for exit if error on first step
@@ -126,48 +126,47 @@ while ~blnConverged
     %% check convergence
     [blnConverged,grpscon] = CheckConvergenceConsensus(CCons);
     
+    keyboard
+    
+%     if blnSave
+%         eval(['CCons', num2str(ctr),' = CCons;']);  % store consensus matrix
+%         eval(['Groups', num2str(ctr),' = grpscon;']); 
+%         save(fname,['CCons', num2str(ctr)],['Groups', num2str(ctr)],'-append');
+%     end
+            
     %% sort out what to do next
-    if blnConverged
-        Qcon = computeQ(grpscon,B,m);  % compute Q, and exit
-    else
-        ctr = ctr+1;  % increment consensus iteration counter
-        if ctr > 50
+    if ~blnConverged 
+        ctr = ctr+1;  % increment consensus iteration count            
+        if  ctr > 50
             % do escape if not converging
             warning('Did not converge in 50 iterations - exiting without consensus answer')
             grpscon = [];
             blnConverged = 0;
             return
+        end
+        
+        if blnExplore
+            disp('I am exploring')
+            [D,egs] = ProjectLaplacian(CCons);  % use fully-connected here?
+            k(ctr) = size(D,2);  % number of groups to find defined by new projection
         else
-            
+            % just use the same number of groups as the original requested
+            % set: find consensus in that space.
+            % so return that number of eigenvectors
+            disp('I am not exploring')
+            k(ctr) = k(1);  % number of groups to find is fixed to the initial set
+            [D,egs] = ProjectLaplacian(CCons,k(ctr));  % use fully-connected here?
 
-            if blnExplore
-                disp('I am exploring')
-                [D,egs] = ProjectLaplacian(CCons);  % use fully-connected here?
-
-                % get partitions using k-means
-                k(ctr) = size(D,2);  % number of groups to find
-                C = kmeansSweep(D,k(ctr),k(ctr),clusterpars.nreps,'all');
+        end
+        % do k-means on projection of consensus matrix
+        C = kmeansSweep(D,k(ctr),k(ctr),nreps,dims);
 
 
-            else
-                % just use the same number of groups as the original requested
-                % set: find consensus in that space.
-                disp('I am not exploring: to be finished')
-                [D,egs] = ProjectLaplacian(CCons);  % use fully-connected here?
-
-                % get partitions using k-means
-                k(ctr) = k(1);  % number of groups to find
-                C = kmeansSweep(D,k(ctr),k(ctr),clusterpars.nreps,'all');
-            end
-                                
-
-            if isempty(C)
-                warning('Consensus matrix projection is empty - exiting without consensus answer')
-                grpscon = [];
-                Qcon = 0;
-                blnConverged = 0;               
-                return
-            end
+        if isempty(C)
+            warning('Consensus matrix projection is empty - exiting without consensus answer')
+            grpscon = [];
+            blnConverged = 0;               
+            return
         end
     end
 end
