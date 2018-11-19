@@ -11,8 +11,8 @@ fname = 'Allen_Gene_Leaf';
 
 
 % clustering parameters
-clusterpars.K = 0.1;            % proportion of neighbours to retain
-clusterpars.nreps = 100;        % of k-means
+clusterpars.K = 1;            % proportion of neighbours to retain
+clusterpars.nreps = 20;        % of k-means
 clusterpars.explore = 'explore';  % allow consensus to use more groups than specified by spectral rejection
 
 
@@ -83,9 +83,10 @@ Data.nodelabels = nodelabels(Data.ixRetain,:);   % update the node labels
 
 % (2) make consensus
 
-[grpscon,ctr,k] = ConsensusSpectralClustering(Data.A,clusterpars.K);
+% [grpscon,ctr,k] = ConsensusSpectralClustering(Data.A,clusterpars.K);
 
 % Or do something else entirely? (e.g. Louvain)       
+[grpscon,ctr] = ConsensusLouvain(Data.A);
        
 
 %% create hierarchy

@@ -20,6 +20,8 @@ function [D,egs,varargout] = ProjectLaplacian(W,varargin)
 %   
 % Notes:
 %   (1) Computes the random-walk Laplacian by default
+%   (2) Checks second eigenvalues onwards for eigengap (ignores first
+%   eigenvector as is scaled unit vector)
 %
 % References:  
 % von Luxburg, U. (2007) A tutorial on spectral clustering. Statistics and Computing, 17, 395-416
@@ -30,7 +32,7 @@ function [D,egs,varargout] = ProjectLaplacian(W,varargin)
 % Mark Humphries
 N = size(W,1);                     % number of objects 
 
-Lbnd = 1; Ubnd = round(N/2);   % default: check first half of eigenvalues
+Lbnd = 2; Ubnd = round(N/2);   % default: check first half of eigenvalues
 
 if nargin > 1
     if numel(varargin{1}) == 1 % passing a scalar
