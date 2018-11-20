@@ -1,21 +1,16 @@
 function [grpscon,ctr,k,varargout] = ConsensusSweep(S,B,varargin)
  
-% CONSENSUSSWEEP consensus partition using k-means sweep
+% CONSENSUSSWEEP consensus partition using k-means sweep, with multiple consensus matrices
 %   [C,N,K] = CONSENSUSSWEEP(S,B) finds the consensus-clustering 
-%   partition of the similarity matrix S, using k-means sweep between bounds in B = [l u]
+%   partition of the n*n similarity matrix S, using k-means sweep between bounds in B = [l u]
 %
 %   Returns: 
-%       C: column vector indicating group membership for the partition with maximum
-%           modularity
+%       C: column vector indicating group membership for the consensus
+%       partition(s): (n rows, by c columns - one column per converged clustering)
 %       N:  the number of iterations until consensus was reached. 
-%       K: the number of clusters detected at each iteration (useful only
-%       for 'each' option)
+%       K: the number of clusters in each returned partition
 %
 %   ...= CONSENSUSSWEEP(...,OPTS) 
-%           OPTS.combine : 'each' (default), 'all'; 'each' produces a
-%           consensus matrix per tested k, and chooses k as the least
-%           ambiguous clustering; 'all' produces a consensus matrix over
-%           all k 
 %           OPTS.nreps : sets k-means to run N times for each specified group size (default is 50)
 %           OPTS.dims : 'scaled' (default), 'all'; the embedding dimensions for each tested K. See KMEANSSWEEP
 %           OPTS.project : 'Laplacian' (default), 'Eigs'
@@ -40,24 +35,24 @@ function [grpscon,ctr,k,varargout] = ConsensusSweep(S,B,varargin)
 %       (default), or eigenvectors of S
 %       - use k-means on projected objects, per requested k; dimensions of
 %           projection scale with k
-%       - Make consensus: either per k; or over all k
-%       - If made consensus per k, choose which to use going forward by 
-%           - checking if any have converged
-%           - if not, finding which is least ambiguous (greatest distance
-%           between modes)
-%       - Repeat from projection    
+%       - Make consensus per k [C(k)]
+%       - Check if any C(k) have converged; if so, exit
+%       - If not: 
+%              - Project each C(k)
+%              - Cluster each C(k) using k
+%              - Make new consensus C(k)
+%        Until converged
 %
 %   References: 
 %   (1) Luxburg
 %
-%   20/11/2018 : initial version, derived from CONSENSUSSPECTRALCLUSTERING
+%   20/11/2018 : initial version, derived from CONSENSUSSWEEPSINGLE
 %
 %   Mark Humphries 
 
 % defaults
-options.nreps = 20;     % of each k
+options.nreps = 50;     % of each k
 options.dims = 'scale';   % scale embedding dimensions to number of clusters for each k-means clustering
-options.combine = 'each';   % consensus per k
 options.project = 'Laplacian';
 options.escape = 50;
 %% check if the passed matrix is a graph: catch common errors when passing a similarity matrix
@@ -98,12 +93,26 @@ nIDs = size(S,1);     % number of nodes of the similarity matrix
 blnConverged = 0;       % stopping flag
 ctr = 0;                % iterations of consensus
 
-
-%% loop: consensus matrix and its clustering until converged
+%% do initial projection and clustering
 ks = B(1):B(2);
 k(1) = B(2);  % number of groups found
-L = B(1); U = B(2);  % limits on k-means sweep
-CCons = S;  % on first loop, use similarity matrix as the consensus matrix
+
+% project the graph
+switch options.project
+    case 'Laplacian'
+        [D,~] = ProjectLaplacian(S,k(ctr));  % return all dimensions to upper bound
+
+    case 'Eigs'
+        D = ProjectEigs(S,k(ctr));  % return all dimensions to upper bound
+    otherwise
+        error('Unknown option for projecting data')
+end
+
+% get partitions using k-means
+C = kmeansSweep(D,B(1),B(2),options.nreps,options.dims);
+varargout{2} = C;  % store initial clusterings
+
+%% loop: consensus matrix and its clustering until converged
 
 while ~blnConverged
     ctr = ctr+1;  % increment consensus iteration count            
@@ -115,88 +124,57 @@ while ~blnConverged
         return
     end
 
-    % project the graph
-    switch options.project
-        case 'Laplacian'
-            [D,~] = ProjectLaplacian(CCons,k(ctr));  % return all dimensions to upper bound
-        case 'Eigs'
-            [D,~] = ProjectEigs(CCons,k(ctr));  % return all dimensions to upper bound
-        otherwise
-            error('Unknown option for projecting data')
-    end
-
-    % get partitions using k-means
-    C = kmeansSweep(D,L,U,options.nreps,options.dims);
-    if ctr == 1  % store initial clusterings
-        varargout{2} = C;
-    end
-
-
     %% now make consensus
-    switch options.combine
-        case 'all'
-            % make consensus over all sweep
-            CCons = makeConsensusMatrix(C);
+    % loop over tested k
+    thisCCons = zeros(size(C),numel(ks));
+    for iK = 1:numel(ks)
+        % make consensus from corresponding part of C
+        ix = 1+options.nreps*(iK-1):options.nreps*iK; % indices into C
+        thisCCons(:,:,iK) = makeConsensusMatrix(C(:,ix));  % make consensus
 
-            % check convergence
-            [blnConverged,grpscon] = CheckConvergenceConsensus(CCons);
-            
-            if ~blnConverged
-                k(ctr+1) = B(2);  % max K for next time
-                % to consider:  how to extend upper limit of k sweep if needed?
-            else
-                k(ctr+1) = max(grpscon);  % number of groups in converged answer
+        % test for convergence, returning theta
+        [blnVec(iK),thisgrps{iK},theta(iK)] = CheckConvergenceConsensus(squeeze(thisCCons(:,:,iK)));   
+    end
+
+    % if *any* converged, then stop and store all converged answers
+    ixConv = find(blnVec);
+    if any(blnVec)
+        blnConverged = 1;
+        grpscon = zeros(nIDs,numel(ixConv));
+        try
+            for iC = 1:numel(ixConv)
+                grpscon(:,iC) = thisgrps{ixConv(iC)};
             end
-            
-        case 'each'
-            % loop over tested k
-            for iK = 1:numel(ks)
-                iK
-                % make consensus from corresponding part of C
-                ix = 1+options.nreps*(iK-1):options.nreps*iK; % indices into C
-                thisCCons = makeConsensusMatrix(C(:,ix));  % make consensus
-                
-                % test for convergence, returning theta
-                [blnVec(iK),thisgrps{iK},theta(iK)] = CheckConvergenceConsensus(thisCCons);   
-                
-                % find modes, and get distance between them
-                allCs = thisCCons(triu(ones(size(thisCCons)),1)==1);   
-                try
-                m1 = median(allCs(allCs <= theta(iK)));
-                m2 = median(allCs(allCs > theta(iK)));
-                d(iK) = m2 - m1;  % distance between modes of consensus entries
-                catch
-                    keyboard
-                end
-            end
-            
+        catch
             keyboard
-            
-            % if *any* converged, then stop
-            ixConv = find(blnVec);
-            if any(blnVec)
-                blnConverged = 1;
-                % if more than one converged
-                if numel(ixConv) > 1
-                   keyboard
-                   % should be the same surely?
-                end
-                grpscon = thisgrps{ixConv};
-                k(ctr+1) = max(grpscon);
-            else
-                % else choose consensus matrix to take forward...
-                ixMax = find(d == max(d));
-                
-                % reconstruct one with best k
-                ix = 1+options.nreps*(ixMax-1):options.nreps*ixMax;
-                CCons = makeConsensusMatrix(C(:,ix));  % make consensus
-            end
-        otherwise 
-            error('Unknown option for combining clusterings into consensus')
+        end
+        k = max(grpscon);  % return number of clusters in each partition
     end
     
-    keyboard
-    
+    if ~blnConverged
+        for iK = 1:numel(ks)
+            % for each k
+            % project the graph
+        switch options.project
+            case 'Laplacian'
+                [D,~] = ProjectLaplacian(CCons,k(ctr));  % return all dimensions to upper bound
+
+            case 'Eigs'
+                D = ProjectEigs(CCons,k(ctr));  % return all dimensions to upper bound
+            otherwise
+                error('Unknown option for projecting data')
+        end
+
+        if any(imag(D(:)))
+            keyboard
+        end
+
+        % get partitions using k-means
+        C = kmeansSweep(D,ks(iK),ks(iK),options.nreps,options.dims);
+
+    end
+end
+
 %     if blnSave
 %         eval(['CCons', num2str(ctr),' = CCons;']);  % store consensus matrix
 %         eval(['Groups', num2str(ctr),' = grpscon;']); 

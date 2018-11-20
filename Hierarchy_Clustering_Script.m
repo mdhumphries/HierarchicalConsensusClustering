@@ -72,10 +72,6 @@ clusterpars.project = 'Eigs';
 [grpscon,ctr,k] = ConsensusSweep(Data.A,[2,20],clusterpars);
 
 
-% combine all 
-clusterpars.combine = 'all';
-[grpscon,ctr,k] = ConsensusSweep(Data.A,[2,20],clusterpars);
-
 
 %% create hierarchy
 
