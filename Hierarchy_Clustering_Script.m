@@ -86,8 +86,9 @@ Data.nodelabels = nodelabels(Data.ixRetain,:);   % update the node labels
 % [grpscon,ctr,k] = ConsensusSpectralClustering(Data.A,clusterpars.K);
 
 % Or do something else entirely? (e.g. Louvain)       
-[grpscon,ctr] = ConsensusLouvain(Data.A);
+%[grpscon,ctr] = ConsensusLouvain(Data.A);
        
+[grpscon,ctr,k] = ConsensusSweep(Data.A,[2,20]);
 
 %% create hierarchy
 
