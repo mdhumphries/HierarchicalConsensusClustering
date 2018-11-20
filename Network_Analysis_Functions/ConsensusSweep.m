@@ -120,12 +120,18 @@ while ~blnConverged
     switch options.project
         case 'Laplacian'
             [D,~] = ProjectLaplacian(CCons,k(ctr));  % return all dimensions to upper bound
+ 
         case 'Eigs'
             D = ProjectEigs(CCons,k(ctr));  % return all dimensions to upper bound
         otherwise
             error('Unknown option for projecting data')
     end
-
+    
+    if any(imag(D(:)))
+        keyboard
+    end
+    
+    
     % get partitions using k-means
     C = kmeansSweep(D,L,U,options.nreps,options.dims);
     if ctr == 1  % store initial clusterings
@@ -193,7 +199,9 @@ while ~blnConverged
                 % reconstruct one with best k
                 ix = 1+options.nreps*(ixMax-1):options.nreps*ixMax;
                 CCons = makeConsensusMatrix(C(:,ix));  % make consensus
+                k(ctr+1) = B(2);
             end
+            
         otherwise 
             error('Unknown option for combining clusterings into consensus')
     end

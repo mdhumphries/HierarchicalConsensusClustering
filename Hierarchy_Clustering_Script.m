@@ -65,7 +65,7 @@ Data.nodelabels = nodelabels(Data.ixRetain,:);   % update the node labels
 
 % Or do something else entirely? (e.g. Louvain)       
 %[grpscon,ctr] = ConsensusLouvain(Data.A);
-       
+clusterpars.project = 'Laplacian';
 [grpscon,ctr,k] = ConsensusSweep(Data.A,[2,20],clusterpars);
 
 clusterpars.project = 'Eigs';
