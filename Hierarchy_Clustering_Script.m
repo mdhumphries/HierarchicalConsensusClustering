@@ -11,9 +11,7 @@ fname = 'Allen_Gene_Leaf';
 
 
 % clustering parameters
-clusterpars.K = 1;            % proportion of neighbours to retain
-clusterpars.nreps = 20;        % of k-means
-clusterpars.explore = 'explore';  % allow consensus to use more groups than specified by spectral rejection
+clusterpars.nreps = 100;        % of k-means
 
 
 %% load data-file
@@ -63,32 +61,21 @@ Data.nodelabels = nodelabels(Data.ixRetain,:);   % update the node labels
 % (2) use a different clustering methods to get initial set for
 % constructing consensus matrix
 
-% simple eigen-gap solution
-
-% P = expectedA(Data.A);
-% B = A - P;
-% Edata = sort(eig(B),'descend');
-
-
-% % (1) spectral clustering: project data using Laplacian 
-% % K-nearest neighbours
-% Wk = KNearestNeighbours(Data.A,clusterpars.K);
-% 
-% % project that graph
-% [D,egs] = ProjectLaplacian(Wk);
-% 
-% % get partitions using k-means
-% k = size(D,2);
-% allgrps = kmeansSweep(D,k,k,clusterpars.nreps,'all');
-
-% (2) make consensus
-
 % [grpscon,ctr,k] = ConsensusSpectralClustering(Data.A,clusterpars.K);
 
 % Or do something else entirely? (e.g. Louvain)       
 %[grpscon,ctr] = ConsensusLouvain(Data.A);
        
-[grpscon,ctr,k] = ConsensusSweep(Data.A,[2,20]);
+[grpscon,ctr,k] = ConsensusSweep(Data.A,[2,20],clusterpars);
+
+clusterpars.project = 'Eigs';
+[grpscon,ctr,k] = ConsensusSweep(Data.A,[2,20],clusterpars);
+
+
+% combine all 
+clusterpars.combine = 'all';
+[grpscon,ctr,k] = ConsensusSweep(Data.A,[2,20],clusterpars);
+
 
 %% create hierarchy
 

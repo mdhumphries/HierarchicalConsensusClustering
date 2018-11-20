@@ -2,11 +2,12 @@ function [grpscon,ctr,k,varargout] = ConsensusSweep(S,B,varargin)
  
 % CONSENSUSSWEEP consensus partition using k-means sweep
 %   [C,N,K] = CONSENSUSSWEEP(S,B) finds the consensus-clustering 
-%   partition of the similarity matrix S, using k-means sweep between bounds in B = [l u]
+%   partition of the n*n similarity matrix S, using k-means sweep between bounds in B = [l u]
 %
 %   Returns: 
-%       C: column vector indicating group membership for the partition with maximum
-%           modularity
+%       C: column vector indicating group membership for the consensus partition
+%           (n rows, by c columns - one column per answer found when using
+%           option "each")
 %       N:  the number of iterations until consensus was reached. 
 %       K: the number of clusters detected at each iteration (useful only
 %       for 'each' option)
@@ -120,7 +121,7 @@ while ~blnConverged
         case 'Laplacian'
             [D,~] = ProjectLaplacian(CCons,k(ctr));  % return all dimensions to upper bound
         case 'Eigs'
-            [D,~] = ProjectEigs(CCons,k(ctr));  % return all dimensions to upper bound
+            D = ProjectEigs(CCons,k(ctr));  % return all dimensions to upper bound
         otherwise
             error('Unknown option for projecting data')
     end
@@ -135,6 +136,7 @@ while ~blnConverged
     %% now make consensus
     switch options.combine
         case 'all'
+            ctr
             % make consensus over all sweep
             CCons = makeConsensusMatrix(C);
 
@@ -148,39 +150,42 @@ while ~blnConverged
                 k(ctr+1) = max(grpscon);  % number of groups in converged answer
             end
             
+            keyboard
+            
         case 'each'
             % loop over tested k
             for iK = 1:numel(ks)
+                iK
                 % make consensus from corresponding part of C
                 ix = 1+options.nreps*(iK-1):options.nreps*iK; % indices into C
                 thisCCons = makeConsensusMatrix(C(:,ix));  % make consensus
                 
                 % test for convergence, returning theta
-                [blnVec(iK),thisgrps{iK},theta(iK)] = CheckConvergenceConsensus(thisCCons);
-
-                % find modes, and get distance between them
-                try
-                    allCs = thisCCons(triu(ones(size(thisCCons)),1));
-                catch
-                    keybaord
-                end
-                m1 = median(allCs <= theta);
-                m2 = median(allCs > theta);
+                [blnVec(iK),thisgrps{iK},theta(iK)] = CheckConvergenceConsensus(thisCCons);   
+                
+                % find modes, and get distance between them - this bears no
+                % relation to finding transitive answers!!
+                allCs = thisCCons(triu(ones(size(thisCCons)),1)==1);   
+                m1 = median(allCs(allCs <= theta(iK)));
+                m2 = median(allCs(allCs > theta(iK)));
                 d(iK) = m2 - m1;  % distance between modes of consensus entries
             end
             
-            keyboard
+            
             % if *any* converged, then stop
             ixConv = find(blnVec);
             if any(blnVec)
                 blnConverged = 1;
                 % if more than one converged
-                if numel(ixConv) > 1
-                   keyboard
-                   % should be the same surely?
+                grpscon = zeros(nIDs,numel(ixConv));
+                try
+                    for iC = 1:numel(ixConv)
+                        grpscon(:,iC) = thisgrps{ixConv(iC)};
+                    end
+                catch
+                    keyboard
                 end
-                grpscon = thisgrps{ixConv};
-                k(ctr+1) = max(grpscon);
+                k(ctr+1) = max(max(grpscon));  % return k as max found
             else
                 % else choose consensus matrix to take forward...
                 ixMax = find(d == max(d));
@@ -192,9 +197,7 @@ while ~blnConverged
         otherwise 
             error('Unknown option for combining clusterings into consensus')
     end
-    
-    keyboard
-    
+
 %     if blnSave
 %         eval(['CCons', num2str(ctr),' = CCons;']);  % store consensus matrix
 %         eval(['Groups', num2str(ctr),' = grpscon;']); 

@@ -100,10 +100,10 @@ ctr = 0;                % iterations of consensus
 
 
 %% loop: consensus matrix and its clustering until converged
-
-CCons = S;  % on first loop, use similarity matrix as the consensus matrix
-k(1) = B(2);  % number of groups to find
+ks = B(1):B(2);
+k(1) = B(2);  % number of groups found
 L = B(1); U = B(2);  % limits on k-means sweep
+CCons = S;  % on first loop, use similarity matrix as the consensus matrix
 
 while ~blnConverged
     ctr = ctr+1;  % increment consensus iteration count            
@@ -125,8 +125,6 @@ while ~blnConverged
             error('Unknown option for projecting data')
     end
 
-    keyboard
-
     % get partitions using k-means
     C = kmeansSweep(D,L,U,options.nreps,options.dims);
     if ctr == 1  % store initial clusterings
@@ -134,55 +132,64 @@ while ~blnConverged
     end
 
 
-    %% bow make consensus
+    %% now make consensus
     switch options.combine
         case 'all'
-            % make consensus
+            % make consensus over all sweep
             CCons = makeConsensusMatrix(C);
 
-            %% check convergence
+            % check convergence
             [blnConverged,grpscon] = CheckConvergenceConsensus(CCons);
             
             if ~blnConverged
-                k(ctr+1) = B(2);  % max K for
+                k(ctr+1) = B(2);  % max K for next time
+                % to consider:  how to extend upper limit of k sweep if needed?
             else
                 k(ctr+1) = max(grpscon);  % number of groups in converged answer
             end
+            
         case 'each'
             % loop over tested k
-            for iK = B(1):B(2)
+            for iK = 1:numel(ks)
+                iK
                 % make consensus from corresponding part of C
                 ix = 1+options.nreps*(iK-1):options.nreps*iK; % indices into C
                 thisCCons = makeConsensusMatrix(C(:,ix));  % make consensus
                 
                 % test for convergence, returning theta
-                [blnVec(iK),thisgrps{iK},theta(iK)] = CheckConvergenceConsensus(thisCCons);
-
+                [blnVec(iK),thisgrps{iK},theta(iK)] = CheckConvergenceConsensus(thisCCons);   
+                
                 % find modes, and get distance between them
-                allCs = thisCCons(triu(ones(size(thisCCons)),1));
-                m1 = median(allCs <= theta);
-                m2 = median(allCs > theta);
+                allCs = thisCCons(triu(ones(size(thisCCons)),1)==1);   
+                try
+                m1 = median(allCs(allCs <= theta(iK)));
+                m2 = median(allCs(allCs > theta(iK)));
                 d(iK) = m2 - m1;  % distance between modes of consensus entries
-            
+                catch
+                    keyboard
+                end
             end
             
             keyboard
+            
             % if *any* converged, then stop
             ixConv = find(blnVec);
             if any(blnVec)
                 blnConverged = 1;
                 % if more than one converged
                 if numel(ixConv) > 1
-                   
-                    keyboard
+                   keyboard
+                   % should be the same surely?
                 end
-                k(ctr+1) = max(
+                grpscon = thisgrps{ixConv};
+                k(ctr+1) = max(grpscon);
             else
                 % else choose consensus matrix to take forward...
-               
-                % reconstruct one with best k
+                ixMax = find(d == max(d));
                 
-                CCons = 
+                % reconstruct one with best k
+                ix = 1+options.nreps*(ixMax-1):options.nreps*ixMax;
+                CCons = makeConsensusMatrix(C(:,ix));  % make consensus
             end
         otherwise 
             error('Unknown option for combining clusterings into consensus')

@@ -10,6 +10,8 @@ function [blnTrans,grpscon,varargout] = CheckConvergenceConsensus(C)
 % [...,T] =  CHECKCONSENSUSCONVERGENCE also returns the detected threshold
 % T between the two modes
 %
+% If unconverged, then G is an array of zeros
+%
 % Change log:
 % 02/03/2017: initial version
 % 21/05/2018: Otsu test, and option to return threshold
@@ -82,10 +84,13 @@ for iN = 1:nIDs
     end
 end
 
-grpscon(1,:) = []; % remove padding zeros
+if blnTrans
+    grpscon(1,:) = []; % remove padding zeros
 
-% sort into ID order, and return just grouping
-[~,ixsrt] = sort(grpscon(:,1),'ascend');
-grpscon = grpscon(ixsrt,2); % return just the grouping IDs
-
+    % sort into ID order, and return just grouping
+    [~,ixsrt] = sort(grpscon(:,1),'ascend');
+    grpscon = grpscon(ixsrt,2); % return just the grouping IDs
+else
+    grpscon = zeros(nIDs,1);
+end
 varargout{1} = theta;
