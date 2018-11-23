@@ -1,16 +1,20 @@
-function [grpscon,ctr,k,varargout] = ConsensusSweep(S,B,varargin)
+function [grpscon,ctr,k,varargout] = ConsensusSweepCommunityDetect(S,B,varargin)
  
-% CONSENSUSSWEEP consensus partition using k-means sweep, with multiple consensus matrices
-%   [C,N,K] = CONSENSUSSWEEP(S,B) finds the consensus-clustering 
-%   partition of the n*n affinity matrix S, using k-means sweep between bounds in B = [l u]
+% CONSENSUSSWEEPCOMMUNITYDETECT consensus community detection using k-means sweep, with multiple consensus matrices
+%   [C,N,K] = CONSENSUSSWEEPCOMMUNITYDETECT (W,B) finds the consensus-clustering 
+%   partition of the n*n weighted graph W, using k-means sweep between bounds in B = [l u]
 %
 %   Returns: 
-%       C: column vector indicating group membership for the consensus
+%       C: column vector indicating community membership for the consensus
 %       partition(s): (n rows, by c columns - one column per converged clustering)
 %       N:  the number of iterations until consensus was reached. 
-%       K: the number of clusters in each returned partition
+%       K: the number of clusters in each returned graph partition
 %
-%   ...= CONSENSUSSWEEP(...,OPTS) 
+%   ...= CONSENSUSSWEEP(...,gamma,OPTS) 
+%           gamma: resolution parameter for the modularity matrix; set []
+%           to omit (default is 1); gamma < 1 = larger communities; gamma >
+%           1 = smaller communities
+%           OPTS is a struct, with at least one of the fields:
 %           OPTS.nreps : sets k-means to run N times for each specified group size (default is 50)
 %           OPTS.dims : 'scaled' (default), 'all'; the embedding dimensions for each tested K. See KMEANSSWEEP
 %           OPTS.project : 'Laplacian' (default), 'Eigs'
@@ -25,24 +29,27 @@ function [grpscon,ctr,k,varargout] = ConsensusSweep(S,B,varargin)
 %              post-processsing.
 %
 %   Notes: 
+%   (0) Weighted graph should have:
+%           - no self-loops (zeros on diagonal of W)
+%           - only positive weights
+%       Warnings for both of these are given, if detected
 %
 %   (1) Sequence of algorithm:
-%       - Project data: Laplacian random walk of similarity matrix
-%       (default), or eigenvectors of S
-%       - use k-means on projected objects, per requested k; dimensions of
+%       - Make modularity matrix Bmod from data
+%       - Project Bmod
+%       - use k-means on projected graph, per requested k; dimensions of
 %           projection scale with k
 %       - Make consensus per k [C(k)]
 %       - Check if any C(k) have converged; if so, exit
-%       - If not: 
-%              - Project each C(k)
-%              - Cluster each C(k) using k
+%       - If not, for each k: 
+%              - make consensus-specific modularity matrix Bcon(k)
+%              - Project Bcon(k)
+%              - Cluster Bcon(k) using k
 %              - Make new consensus C(k)
 %        Until converged
 %
-%   References: 
-%   (1) Luxburg
 %
-%   20/11/2018 : initial version, derived from CONSENSUSSWEEPSINGLE
+%   23/11/2018 : initial version, derived from CONSENSUSSWEEP
 %
 %   Mark Humphries 
 
@@ -52,10 +59,29 @@ options.dims = 'scale';   % scale embedding dimensions to number of clusters for
 options.project = 'Laplacian';
 options.escape = 50;
 
+gamma = 1;  % resolution parameter
+
+%% check if the passed matrix is a graph: catch common errors when passing a similarity matrix
+
+% (1) no self-loops allowed
+if ~all(diag(S)==0) 
+    warning('Results likely unreliable: similarity matrix has self-loops. Set diagonal to zero')
+end
+
+% (2) no negative links
+x = sum(sum(S < 0));
+if x > 0
+    warning('Results likely unreliable: similarity matrix has negative values')
+end
+
 %% set up options
-if nargin >= 3
+if narargin >= 3  & ~isempty(varargin{1})
+    gamma = varargin{1};
+end    
+
+if nargin >= 4
     if isstruct(options) 
-        tempopts = varargin{1}; 
+        tempopts = varargin{2}; 
         fnames = fieldnames(tempopts);
         for i = 1:length(fnames)
             options = setfield(options,fnames{i},getfield(tempopts,fnames{i}));
@@ -81,16 +107,10 @@ ctr = 0;                % iterations of consensus
 ks = B(1):B(2);
 k(1) = B(2);  % number of groups found
 
-% project the affinity matrix
-switch options.project
-    case 'Laplacian'
-        [D,~] = ProjectLaplacian(S,B(2)+1);  % return all dimensions to upper bound (add one more dimension for first unit vector)
+% project the weighted graph using modularity
+Bmod = W - gamma*expectedA(W);  % modularity matrix
 
-    case 'Eigs'
-        D = ProjectEigs(S,B(2));  % return all dimensions to upper bound
-    otherwise
-        error('Unknown option for projecting data')
-end
+D = ProjectEigs(Bmod,B(2));  % return all dimensions to upper bound
 
 % get partitions using k-means
 C = kmeansSweep(D,B(1),B(2),options.nreps,options.dims);
@@ -138,20 +158,10 @@ while ~blnConverged
     if ~blnConverged
         for iK = 1:numel(ks)
             % for each k
-            % project the consensus matrix
-            switch options.project
-                case 'Laplacian'
-                    [D,~] = ProjectLaplacian(squeeze(allCCons(:,:,iK)),ks(iK)+1);  % return all dimensions for k
-
-                case 'Eigs'
-                    D = ProjectEigs(squeeze(allCCons(:,:,iK)),ks(iK));  % return all dimensions for k
-                otherwise
-                    error('Unknown option for projecting data')
-            end
-
-            if any(imag(D(:)))
-                keyboard
-            end
+            % project the consensus matrix - *not* using gamma here (as
+            % null model is *not* configuration model
+            Bcon = allCCons(:,:,iK) - nullmodelConsensusSweep(ks(iK),options.nreps,nIDs);
+            D = ProjectEigs(Bcon,ks(iK));  % return all dimensions for k
 
             % get partitions of that consensus matrix using k-means
             ix = 1+options.nreps*(iK-1):options.nreps*iK; % indices into C
