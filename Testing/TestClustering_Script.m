@@ -25,16 +25,16 @@ clusterpars.nreps = 100;        % of k-means
 
 %% cluster
 clusterpars.project = 'Laplacian';
-[grpscon,ctr,k] = ConsensusSweep(S,[2,20],clusterpars);
+[grpscon,ctr,k,bln,Clu] = ConsensusSweep(S,[2,10],clusterpars);
 
 
 
 %% test parameter options
 clusterpars.project = 'Eigs';
-[grpscon,ctr,k] = ConsensusSweep(A,[2,50],clusterpars);
+[grpscon,ctr,k] = ConsensusSweep(A,[2,20],clusterpars);
 
 options.escape = 3;
-[grpscon,ctr,k] = ConsensusSweep(A,[2,50],clusterpars);
+[grpscon,ctr,k] = ConsensusSweep(A,[2,20],clusterpars);
 
 
 %% view some results
