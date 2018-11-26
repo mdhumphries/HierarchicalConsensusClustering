@@ -31,10 +31,10 @@ clusterpars.project = 'Laplacian';
 
 %% test parameter options
 clusterpars.project = 'Eigs';
-[grpscon,ctr,k] = ConsensusSweep(A,[2,20],clusterpars);
+[grpscon,ctr,k] = ConsensusSweep(S,[2,10],clusterpars);
 
 options.escape = 3;
-[grpscon,ctr,k] = ConsensusSweep(A,[2,20],clusterpars);
+[grpscon,ctr,k] = ConsensusSweep(S,[2,20],clusterpars);
 
 
 %% view some results

@@ -35,7 +35,7 @@ for ngrps = LowerK:UpperK
         case 'all'
             thisVector = D;
         case 'scale'
-            thisVector = D(:,ngrps-1); % subset of dimensions
+            thisVector = D(:,ngrps); % subset of dimensions
         otherwise
             error('Unknown options for DIMS')
     end
@@ -46,7 +46,7 @@ for ngrps = LowerK:UpperK
 
         try            
             allgrps(:,ixNow) = kmeans(thisVector,ngrps,'Distance','sqeuclidean','Start',cpos);
-
+            % allgrps(:,ixNow) = kmeans(thisVector,ngrps,'Distance','sqeuclidean','Start','sample');
         catch
             % if kmeans throws a wobbly, set to "no groups"...
             warning('kmeans wobbly')

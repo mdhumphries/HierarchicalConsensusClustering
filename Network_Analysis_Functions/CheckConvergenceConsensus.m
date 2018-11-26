@@ -61,6 +61,8 @@ end
 A_upper = C;
 A_upper(C < theta) = 0;  % remove all of lower mode links from matrix
 
+% keyboard
+
 % find groups deterministically...
 grpscon = [0 0]; grpctr = 1; blnTrans = 1;
 for iN = 1:nIDs

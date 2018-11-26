@@ -85,7 +85,6 @@ ctr = 0;                % iterations of consensus
 
 %% do initial projection and clustering
 ks = B(1):B(2);
-k(1) = B(2);  % number of groups found
 
 % project the affinity matrix
 switch options.project
