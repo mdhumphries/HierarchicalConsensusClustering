@@ -52,6 +52,12 @@ options.dims = 'scale';   % scale embedding dimensions to number of clusters for
 options.project = 'Laplacian';
 options.escape = 50;
 
+
+% check for errors
+if sum(S) ~= sum(S')
+    error('Similarity matrix is not symmetric');
+end
+
 %% set up options
 if nargin >= 3
     if isstruct(options) 
