@@ -37,7 +37,7 @@ end
 K = 1+ UpperK - LowerK;
 ixNow = 1;
 allgrps = zeros(n,(K-1)*Treps);
-allsumD = zeros((K-1)*Treps,1);
+allsumD = zeros((K-1)*Treps,1;
 for ngrps = LowerK:UpperK
     switch dims
         case 'all'

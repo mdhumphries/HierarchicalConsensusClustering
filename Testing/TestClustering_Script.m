@@ -10,11 +10,11 @@ addpath('../Helper_Functions/')
 W.N = 4;
 W.size = 100;
 W.within1.m = 0.5;
-W.within1.s = 0.1;
+W.within1.s = 0.2;
 W.within2.m = 0.25;
-W.within2.s = 0.1;
+W.within2.s = 0.2;
 W.between.m = 0.1;
-W.between.s = 0.1;
+W.between.s = 0.2;
 
 S = MakeTestData(W);
 figure
