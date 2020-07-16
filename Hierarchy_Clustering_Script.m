@@ -13,7 +13,6 @@ fname = 'Allen_Gene_Leaf';
 % clustering parameters
 clusterpars.nreps = 100;        % of k-means
 
-
 %% load data-file
 load(['Networks/' fname]); 
 

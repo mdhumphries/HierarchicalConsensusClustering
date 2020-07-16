@@ -104,7 +104,7 @@ switch options.project
 end
 
 % get partitions using k-means
-C = kmeansSweep(D,B(1),B(2),options.nreps,options.dims);
+[C,allSum] = kmeansSweep(D,B(1),B(2),options.nreps,options.dims);
 varargout{2} = C;  % store initial clusterings
 
 %% loop: consensus matrix and its clustering until converged
@@ -121,11 +121,10 @@ while ~blnConverged
     %% now make consensus
     % loop over tested k
     allCCons = zeros(nIDs,nIDs,numel(kept_ks)); % empty consensus matrix
-    blnVec = zeros(numel(kept_ks),1); theta = blnVec; thisgrps = cell(numel(kept_ks),1);
     for iK = 1:numel(kept_ks)
         % make consensus from corresponding part of C
         ix = 1+options.nreps*(iK-1):options.nreps*iK; % indices into C
-        % thisS = allSum(ix);
+        thisS = allSum(ix);
         allCCons(:,:,iK) = makeConsensusMatrix(C(:,ix));  % make consensus
 
         % test for convergence, returning theta
@@ -138,16 +137,11 @@ while ~blnConverged
     if any(blnVec)
         % get converged answers
         for iC = 1:numel(ixConv)
-            try
             if max(thisgrps{ixConv(iC)}) ~= kept_ks(ixConv(iC))
                 warning(['Converged groups do not match number of tested groups at k=' num2str(kept_ks(ixConv(iC)))]);
                 % keyboard
             end
-            catch
-                keyboard
-            end
-            
-            ixK = kept_ks(ixConv(iC)) - B(1) + 1;   % map this K value onto the index for storing groups
+            ixK = kept_ks(ixConv(iC)) - B(1) + 1;
             grpscon(:,ixK) = thisgrps{ixConv(iC)};  % store converged group
 
         end
@@ -170,7 +164,6 @@ while ~blnConverged
     
     if ~blnConverged
         % keyboard
-        C = zeros(nIDs,numel(kept_ks) * options.nreps); % clear C!
         for iK = 1:numel(kept_ks) % checking all kept K, shifting starting index to 1, so that iK counts within the complete range of K
             % for each value of K we're still checking...
             % project the consensus matrix
@@ -195,7 +188,7 @@ while ~blnConverged
 
             % get partitions of that consensus matrix using k-means
             ix = 1+options.nreps*(iK-1):options.nreps*iK; % indices into C
-            C(:,ix) = kmeansSweep(D,kept_ks(iK),kept_ks(iK),options.nreps,options.dims);  % repeat the same k
+            [C(:,ix),allSum = kmeansSweep(D,ks(iK),ks(iK),options.nreps,options.dims);  % repeat the same k
         end
     end
 end
