@@ -128,7 +128,7 @@ while ~blnConverged
 
     % if *any* converged, then stop and store all converged answers
     ixConv = find(blnVec);
-    keyboard
+    % keyboard
     if any(blnVec)
         blnConverged = 1;
         grpscon = zeros(nIDs,numel(ixConv));
